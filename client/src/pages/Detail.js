@@ -1,24 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import React, { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@apollo/client";
 
-import { QUERY_PRODUCTS } from '../utils/queries';
-import spinner from '../assets/spinner.gif';
+import { QUERY_PRODUCTS } from "../utils/queries";
+import spinner from "../assets/spinner.gif";
+
+import { useStoreContext } from "../utils/GlobalState";
+import { UPDATE_PRODUCTS } from "../utils/actions";
 
 function Detail() {
-  const { id } = useParams();
+  const [state, dispatch] = useStoreContext();
+  const { products } = state;
 
+  const { id } = useParams();
+  // Local is still used here because this is the only place in the app it is needed
+  // Saving it would provide no benefit
   const [currentProduct, setCurrentProduct] = useState({});
 
   const { loading, data } = useQuery(QUERY_PRODUCTS);
 
-  const products = data?.products || [];
-
   useEffect(() => {
+    // Checks for data in the global state's products array
     if (products.length) {
+      // If there is, it is used to figure out which one to display
       setCurrentProduct(products.find((product) => product._id === id));
+      // If there is no global state data, the data from the Query is used
+    } else if (data) {
+      // Global state is then updated, and the entire thing is run again, where it now hits the setCurrentProduct
+      dispatch({
+        type: UPDATE_PRODUCTS,
+        products: data.products,
+      });
     }
-  }, [products, id]);
+  }, [products, data, dispatch, id]);
 
   return (
     <>
@@ -31,7 +45,7 @@ function Detail() {
           <p>{currentProduct.description}</p>
 
           <p>
-            <strong>Price:</strong>${currentProduct.price}{' '}
+            <strong>Price:</strong>${currentProduct.price}{" "}
             <button>Add to Cart</button>
             <button>Remove from Cart</button>
           </p>
