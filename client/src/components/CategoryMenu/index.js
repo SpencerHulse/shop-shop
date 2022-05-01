@@ -6,6 +6,7 @@ import {
   UPDATE_CATEGORIES,
   UPDATE_CURRENT_CATEGORY,
 } from "../../utils/actions";
+import { idbPromise } from "../../utils/helpers";
 
 function CategoryMenu() {
   // Retrieves the current state and dispatch method immediately
@@ -14,7 +15,8 @@ function CategoryMenu() {
   // Was previously: const categories = categoryData.?categories || [];
   const { categories } = state;
   // Get the categories stored in the database
-  const { data: categoryData } = useQuery(QUERY_CATEGORIES);
+  // Loading is used to test for online status for indexedDB load
+  const { loading, data: categoryData } = useQuery(QUERY_CATEGORIES);
   // Use useEffect to track changes in categoryData and run dispatch when there is finally data
   // Must use useEffect because if dispatch is called immediately, categoryData will be undefined
   useEffect(() => {
@@ -26,8 +28,20 @@ function CategoryMenu() {
         type: UPDATE_CATEGORIES,
         categories: categoryData.categories,
       });
+
+      // IndexedDB
+      categoryData.categories.forEach((category) => {
+        idbPromise("categories", "put", category);
+      });
+    } else if (!loading) {
+      idbPromise("categories", "get").then((categories) => {
+        dispatch({
+          type: UPDATE_CATEGORIES,
+          categories: categories,
+        });
+      });
     }
-  }, [categoryData, dispatch]);
+  }, [categoryData, loading, dispatch]);
 
   const handleClick = (id) => {
     dispatch({
