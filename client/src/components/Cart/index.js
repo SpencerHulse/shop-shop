@@ -2,12 +2,20 @@ import React, { useEffect } from "react";
 import CartItem from "../CartItems";
 import Auth from "../../utils/auth";
 import "./style.css";
+// Context API for global state
 import { useStoreContext } from "../../utils/GlobalState";
 import { TOGGLE_CART, ADD_MULTIPLE_TO_CART } from "../../utils/actions";
-import { idbPromise } from "../../utils/helpers";
+import { idbPromise } from "../../utils/helpers"; // Persistence
+// Stripe
+import { loadStripe } from "@stripe/stripe-js";
+import { useLazyQuery } from "@apollo/client"; // Lazy hooks only occur when called, not upon render
+import { QUERY_CHECKOUT } from "../../utils/queries";
+// API Key (Currently the TEST key)
+const stripePromise = loadStripe("pk_test_TYooMQauvdEDq54NiTphI7jx");
 
 const Cart = () => {
   const [state, dispatch] = useStoreContext();
+  const [getCheckout, { data }] = useLazyQuery(QUERY_CHECKOUT); // Only occurs when called
 
   function toggleCart() {
     dispatch({ type: TOGGLE_CART });
@@ -20,6 +28,29 @@ const Cart = () => {
     });
     return sum.toFixed(2);
   }
+
+  function submitCheckout() {
+    const productIds = [];
+
+    state.cart.forEach((item) => {
+      for (let i = 0; i < item.purchaseQuantity; i++) {
+        productIds.push(item._id);
+      }
+    });
+
+    getCheckout({
+      variables: { products: productIds },
+    });
+  }
+
+  // useEffect hook targeted at the data needed for stripe
+  useEffect(() => {
+    if (data) {
+      stripePromise.then((res) => {
+        res.redirectToCheckout({ sessionId: data.checkout.session });
+      });
+    }
+  }, [data]);
 
   useEffect(() => {
     async function getCart() {
@@ -59,7 +90,7 @@ const Cart = () => {
           <div className="flex-row space-between">
             <strong>Total: ${calculateTotal()}</strong>
             {Auth.loggedIn() ? (
-              <button>Checkout</button>
+              <button onClick={submitCheckout}>Checkout</button>
             ) : (
               <span>(log in to check out)</span>
             )}
